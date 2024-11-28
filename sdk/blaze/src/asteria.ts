@@ -51,13 +51,6 @@ async function createShip(
     const asteria_ref_input = outRefToTransactionInput(
         game_identifier.asteria_script_reference!,
     );
-    const asteria_input = outRefToTransactionInput(
-        game_identifier.asteria_utxo!,
-    );
-
-    const asteria_utxos = await blaze.provider.resolveUnspentOutputs([
-        asteria_input,
-    ]);
 
     const asteria_ref_utxos = await blaze.provider.resolveUnspentOutputs([
         asteria_ref_input,
@@ -69,7 +62,6 @@ async function createShip(
         spacetime_ref_input,
     ]);
 
-    const asteria_datum = asteria_utxos[0].output().datum()!.asInlineData()!;
     const asteria_ref_datum = asteria_ref_utxos[0].output().datum()!
         .asInlineData()!;
     const spacetime_ref_datum = spacetime_ref_utxos[0].output().datum()!
@@ -79,6 +71,7 @@ async function createShip(
     const pellet_validator_address = pellet_ref_utxos[0].output().address();
     const spacetime_validator_address = spacetime_ref_utxos[0].output()
         .address();
+
 
     const shipyard_policy = extractPolicyIdFromAddress(
         spacetime_validator_address,
@@ -97,14 +90,16 @@ async function createShip(
         SpaceTimeScriptDatum,
     );
 
+    const admin_token_from_datum = asteria_ref_datum_data.admin_token;
+    const admin_token = AssetId(
+        admin_token_from_datum.policy_id + admin_token_from_datum.asset_name,
+    );
+    const asteria_utxos = await blaze.provider.getUnspentOutputsWithAsset(asteria_validator_address, admin_token);
+    const asteria_datum = asteria_utxos[0].output().datum()!.asInlineData()!;
+
     const asteria_datum_data = Data.from(
         asteria_datum,
         AsteriaDatum,
-    );
-    const admin_token_from_datum = asteria_ref_datum_data.admin_token;
-
-    const admin_token = AssetId(
-        admin_token_from_datum.policy_id + admin_token_from_datum.asset_name,
     );
 
     const ship_name = "SHIP" + asteria_datum_data.ship_counter.toString();
@@ -454,8 +449,8 @@ async function gatherFuel(
         admin_token,
         1n,
     ])
-    if(pellet_change > 0) {
-        value_to_lock =  makeValue(0n, [fuel_token, pellet_change], [
+    if (pellet_change > 0) {
+        value_to_lock = makeValue(0n, [fuel_token, pellet_change], [
             admin_token,
             1n,
         ]);
@@ -503,9 +498,6 @@ async function mineAsteria(
         game_identifier.pellet_script_reference!,
     );
     const ship_input = outRefToTransactionInput(game_identifier.ship_utxo!);
-    const asteria_input = outRefToTransactionInput(
-        game_identifier.asteria_utxo!,
-    );
 
     const asteria_ref_utxos = await blaze.provider.resolveUnspentOutputs([
         asteria_ref_input,
@@ -517,9 +509,6 @@ async function mineAsteria(
         pellet_ref_input,
     ]);
 
-    const asteria_utxos = await blaze.provider.resolveUnspentOutputs([
-        asteria_input,
-    ]);
     const ship_utxo = await blaze.provider.resolveUnspentOutputs([ship_input]);
 
     const asteria_validator_address = asteria_ref_utxos[0].output().address();
@@ -531,23 +520,24 @@ async function mineAsteria(
         spacetime_validator_address,
     );
 
-    const asteria_ref_datum = asteria_utxos[0].output().datum()!
+    const asteria_ref_datum = asteria_ref_utxos[0].output().datum()!
         .asInlineData()!;
     const asteria_ref_datum_data = Data.from(
         asteria_ref_datum,
         AsteriaScriptDatum,
     );
     const admin_token_from_datum = asteria_ref_datum_data.admin_token;
+    const admin_token = AssetId(
+        admin_token_from_datum.policy_id + admin_token_from_datum.asset_name,
+    );
+
+    const asteria_utxos = await blaze.provider.getUnspentOutputsWithAsset(asteria_validator_address, admin_token);
+    const asteria_datum = asteria_utxos[0].output().datum()!.asInlineData()!;
 
     const fuel_policy = extractPolicyIdFromAddress(pellet_validator_address);
     const fuel_assetName = "4655454C";
     const fuel_token = AssetId(fuel_policy + fuel_assetName);
 
-    const admin_token = AssetId(
-        admin_token_from_datum.policy_id + admin_token_from_datum.asset_name,
-    );
-
-    const asteria_datum = asteria_utxos[0].output().datum()!.asInlineData()!;
 
     const asteria_datum_data = Data.from(
         asteria_datum,
