@@ -1,5 +1,6 @@
 import { Unwrapped } from "@blaze-cardano/ogmios";
-import { Blaze, Data, HotWallet, Kupmios, Wallet, Provider } from "@blaze-cardano/sdk";
+import { Blaze, Data, HotWallet, Kupmios, Wallet, Provider, Blockfrost } from "@blaze-cardano/sdk";
+import { NetworkId } from "@blaze-cardano/core";
 import * as dotenv from "dotenv";
 
 // Load environment variables
@@ -34,7 +35,8 @@ import { FuelManager } from "./fuel-manager";
 import { Position, GAME_CONFIG } from "./types";
 
 class SmartAsteriaBot {
-    private provider!: Kupmios;
+    private provider!: Kupmios;  // For transactions and tip queries
+    private blockfrost!: Blockfrost;  // For reliable data queries
     private wallet!: Wallet;
     private blaze!: Blaze<Kupmios, Wallet>;
     private gameState!: GameStateManager;
@@ -89,13 +91,24 @@ class SmartAsteriaBot {
     }
 
     async initialize(): Promise<void> {
-        console.log("🚀 Initializing Smart Asteria Bot...");
+        console.log("🚀 Initializing Smart Asteria Bot with hybrid Blockfrost + Kupo approach...");
         
-        // Initialize provider and wallet
+        // Initialize Kupo/Ogmios provider for transactions and tip queries
         this.provider = new Kupmios(
             process.env.KUPO_URL || "https://kupo1shqzdry3gh2dsgdy3lg.mainnet-v2.kupo-m1.demeter.run",
             await Unwrapped.Ogmios.new(process.env.OGMIOS_URL || "https://ogmios199hxc0fnr4wpjg8cp37.mainnet-v6.ogmios-m1.demeter.run")
         );
+
+        // Initialize Blockfrost for reliable data queries
+        const blockfrostProjectId = process.env.BLOCKFROST_PROJECT_ID;
+        if (!blockfrostProjectId) {
+            throw new Error("BLOCKFROST_PROJECT_ID environment variable required");
+        }
+        console.log("🔗 Initializing Blockfrost with project ID:", blockfrostProjectId);
+        this.blockfrost = new Blockfrost({
+            network: "cardano-mainnet",
+            projectId: blockfrostProjectId
+        });
 
         const mnemonic = process.env.SEED;
         if (!mnemonic) throw new Error("SEED environment variable required");
@@ -108,14 +121,18 @@ class SmartAsteriaBot {
         // Get fuel token and shipyard policy from reference scripts
         await this.initializePolicies();
 
-        // Initialize game components
+        // Initialize game components using Blockfrost for data queries
         this.gameState = new GameStateManager(
-            this.provider,
+            this.blockfrost,  // Use Blockfrost for reliable pellet/ship queries
             this.pelletValidatorAddress,
             this.spacetimeValidatorAddress,
             this.fuelToken,
             this.shipyardPolicy
         );
+
+        console.log("📋 Hybrid setup complete:");
+        console.log("   🔗 Blockfrost: Data queries (pellets, ships)");
+        console.log("   ⚡ Kupo/Ogmios: Transactions and tip queries");
         
         this.spawnOptimizer = new SpawnOptimizer(this.gameState);
         this.pathfinder = new Pathfinder(this.gameState);
@@ -498,7 +515,8 @@ class SmartAsteriaBot {
         
         try {
             const shipInput = outRefToTransactionInput(this.shipUtxoRef);
-            const shipUtxo = await this.blaze.provider.resolveUnspentOutputs([shipInput]);
+            // Use Kupo/Ogmios provider for transaction-related queries
+            const shipUtxo = await this.provider.resolveUnspentOutputs([shipInput]);
             
             const datum = shipUtxo[0].output().datum()?.asInlineData();
             if (!datum) return;
@@ -534,7 +552,8 @@ class SmartAsteriaBot {
         while (attempts < maxAttempts) {
             try {
                 await this.delay(5000);
-                await this.blaze.provider.resolveUnspentOutputs([
+                // Use Kupo/Ogmios provider for transaction confirmation checks
+                await this.provider.resolveUnspentOutputs([
                     new TransactionInput(txId, 0n)
                 ]);
                 console.log("✅ Transaction confirmed");
@@ -553,7 +572,8 @@ class SmartAsteriaBot {
         try {
             // Get the ship's last move time from the datum
             const shipInput = outRefToTransactionInput(this.shipUtxoRef);
-            const shipUtxo = await this.blaze.provider.resolveUnspentOutputs([shipInput]);
+            // Use Kupo/Ogmios provider for transaction-related queries
+            const shipUtxo = await this.provider.resolveUnspentOutputs([shipInput]);
             
             const datum = shipUtxo[0].output().datum()?.asInlineData();
             if (!datum) {
