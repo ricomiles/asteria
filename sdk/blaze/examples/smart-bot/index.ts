@@ -741,6 +741,7 @@ class SmartAsteriaBot {
     private async delayWithProgress(ms: number): Promise<void> {
         const startTime = Date.now();
         const totalTime = ms;
+        const totalCooldownTime = GAME_CONFIG.maxSpeed.time; // 12096000ms (full cooldown period)
         
         // Show progress every 30 seconds for waits longer than 1 minute
         if (ms > 60000) {
@@ -753,7 +754,9 @@ class SmartAsteriaBot {
                     return;
                 }
                 
-                const progress = ((elapsed / totalTime) * 100).toFixed(1);
+                // Calculate progress based on the full cooldown period, not just remaining time
+                const timeElapsedInFullCooldown = totalCooldownTime - remaining;
+                const progress = ((timeElapsedInFullCooldown / totalCooldownTime) * 100).toFixed(1);
                 console.log(`⏳ Cooldown progress: ${progress}% - ${this.formatTimeRemaining(remaining)} remaining`);
             }, 30000); // Update every 30 seconds
             
