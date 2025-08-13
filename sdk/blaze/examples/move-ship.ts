@@ -5,33 +5,32 @@ import { OutRef, GameIdentifier } from "../src/types";
 
 async function main() {
     const address =
-        "addr_test1qzjpgxkhe06gxzstfhywg02ggy5ltuwne6mfr406dlf0mpwp9a07r34cwsnkpn44tllxuydw4wp0xvstw5jqv5q9lszsk2qynn";
+        "addr1qy45nexa87ms28jxe48rqs5g36sgrjej9n4fp09h9ftdxr60053vjzxn37ayva7d6fghzfeg8g20axhzjvtd4awz5g5s32wyqz";
 
     const provider = new Kupmios(
-        process.env.KUPO_URL!,
-        await Unwrapped.Ogmios.new(process.env.OGMIOS_URL!)
+        "https://kupo1shqzdry3gh2dsgdy3lg.mainnet-v2.kupo-m1.demeter.run",
+        await Unwrapped.Ogmios.new("https://ogmios199hxc0fnr4wpjg8cp37.mainnet-v6.ogmios-m1.demeter.run")
     );
-
 
     const ship_utxo: OutRef = {
         tx_hash:
-            "41f2a593e131a3c5db878bbe7753b89c8c6de555b7127e812c0f488d1a898368",
+            "cf6a3f68140328366e4a35ec6520d78a3a95ac8485b2d1fca6c98d605f181073",
         tx_index: 0n,
     };
 
     const spacetime_script_reference: OutRef = {
         tx_hash:
-            "41e5881cd3bdc3f08bcf341796347e9027e3bcd8d58608b4fcfca5c16cbf5921",
-        tx_index: 0n,
+            "3d308c0f3deb1eff764cbb765452c53d30704748681d7acd61c7775aeb8a8e46",
+        tx_index: 1n,
     };
 
     const pellet_script_reference: OutRef = {
         tx_hash:
-            "ba6fab625d70a81f5d1b699e7efde4b74922d06224bef1f6b84f3adf0a61f3f3",
-        tx_index: 0n,
+            "3d308c0f3deb1eff764cbb765452c53d30704748681d7acd61c7775aeb8a8e46",
+        tx_index: 2n,
     };
 
-    const delta_x = -1n;
+    const delta_x = 0n;
     const delta_y = -1n
 
     const move_ship_identifier: GameIdentifier = {

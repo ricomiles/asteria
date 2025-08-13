@@ -1,5 +1,6 @@
 import {
     Address,
+    addressFromBech32,
     AssetId,
     Slot,
     Transaction,
@@ -64,15 +65,9 @@ async function createShip(
         spacetime_ref_input,
     ]);
 
-    const asteria_ref_datum = asteria_ref_utxos[0].output().datum()!
-        .asInlineData()!;
-    const spacetime_ref_datum = spacetime_ref_utxos[0].output().datum()!
-        .asInlineData()!;
-
-    const asteria_validator_address = asteria_ref_utxos[0].output().address();
-    const pellet_validator_address = pellet_ref_utxos[0].output().address();
-    const spacetime_validator_address = spacetime_ref_utxos[0].output()
-        .address();
+    const asteria_validator_address = addressFromBech32("addr1w824uvev63kj40lzfhaq2kxzmmwsz9xsqsjr2t4cq74vzdcdw8c77");
+    const pellet_validator_address = addressFromBech32("addr1wya6hnluvypwcfww6s8p5f8m5gphryjugmcznxetj3trvrsc307jj");
+    const spacetime_validator_address = addressFromBech32("addr1wypfrtn6awhsvjmc24pqj0ptzvtfalang33rq8ng6j6y7scnlkytx");
 
     const shipyard_policy = extractPolicyIdFromAddress(
         spacetime_validator_address,
@@ -82,21 +77,12 @@ async function createShip(
     const fuel_assetName = "4655454C";
     const fuel_token = AssetId(fuel_policy + fuel_assetName);
 
-    const asteria_ref_datum_data = Data.from(
-        asteria_ref_datum,
-        AsteriaScriptDatum,
-    );
 
-    const admin_token_from_datum = asteria_ref_datum_data.admin_token;
     const admin_token = AssetId(
-        admin_token_from_datum.policy_id + admin_token_from_datum.asset_name,
+        "db0d968cda2cc636b28c0f377e66691a065b8004e57be5129aeef82261757468",
     );
     const asteria_utxos = await blaze.provider.getUnspentOutputsWithAsset(asteria_validator_address, admin_token);
     const asteria_datum = asteria_utxos[0].output().datum()!.asInlineData()!;
-    const spacetime_ref_datum_data = Data.from(
-        spacetime_ref_datum,
-        SpaceTimeScriptDatum,
-    );
 
     const asteria_datum_data = Data.from(
         asteria_datum,
@@ -111,20 +97,20 @@ async function createShip(
     const ship_token = AssetId(shipyard_policy + ship_asset_name);
     const pilot_token = AssetId(shipyard_policy + pilot_asset_name);
 
-    const total_rewards = asteria_utxos[0].output().amount().coin() +
-        asteria_ref_datum_data.ship_mint_lovelace_fee;
-
+    const total_rewards = asteria_utxos[0].output().amount().coin() + 1000000n;
     const query_tip_result = await blaze.provider.ogmios.queryNetworkTip();
     const network_tip = JSON.parse(JSON.stringify(query_tip_result));
     const latest_slot = Number(network_tip.slot) + 300;
-    const tx_latest_posix_time = slotToUnix(latest_slot);
+    
+    // Add offset to match Cardano's internal POSIX conversion
+    const tx_latest_posix_time = slotToUnix(latest_slot) + 300000;
 
     const ship_datum_data = {
         pos_x: pos_x,
         pos_y: pos_y,
         ship_token_name: ship_asset_name,
         pilot_token_name: pilot_asset_name,
-        tx_latest_posix_time: BigInt(tx_latest_posix_time),
+        last_move_latest_time: BigInt(tx_latest_posix_time),
     };
 
     const ship_datum = Data.to(ship_datum_data, ShipDatum);
@@ -144,6 +130,7 @@ async function createShip(
         .addReferenceInput(pellet_ref_utxos[0])
         .addReferenceInput(spacetime_ref_utxos[0])
         .addInput(asteria_utxos[0], redeemer)
+        .setMinimumFee(508021n)
         .addMint(
             AssetId.getPolicyId(ship_token),
             new Map([[AssetId.getAssetName(ship_token), 1n], [
@@ -156,7 +143,7 @@ async function createShip(
             spacetime_validator_address,
             makeValue(0n, [ship_token, 1n], [
                 fuel_token,
-                spacetime_ref_datum_data.initial_fuel,
+                5n,
             ]),
             ship_datum,
         )
@@ -164,7 +151,7 @@ async function createShip(
             AssetId.getPolicyId(fuel_token),
             new Map([[
                 AssetId.getAssetName(fuel_token),
-                spacetime_ref_datum_data.initial_fuel,
+                5n,
             ]]),
             redeemer,
         )
@@ -204,9 +191,8 @@ async function moveShip(
 
     const ship_utxo = await blaze.provider.resolveUnspentOutputs([ship_input]);
 
-    const spacetime_validator_address = spacetime_ref_utxos[0].output()
-        .address();
-    const pellet_validator_address = pellet_ref_utxos[0].output().address();
+    const pellet_validator_address = addressFromBech32("addr1wya6hnluvypwcfww6s8p5f8m5gphryjugmcznxetj3trvrsc307jj");
+    const spacetime_validator_address = addressFromBech32("addr1wypfrtn6awhsvjmc24pqj0ptzvtfalang33rq8ng6j6y7scnlkytx");
 
     const fuel_policy = extractPolicyIdFromAddress(pellet_validator_address);
     const fuel_assetName = "4655454C";
@@ -241,18 +227,12 @@ async function moveShip(
         );
     }
 
-    const spacetime_ref_datum = spacetime_ref_utxos[0].output().datum()!
-        .asInlineData()!;
-    const spacetime_ref_datum_data = Data.from(
-        spacetime_ref_datum,
-        SpaceTimeScriptDatum,
-    );
 
     const distance = BigInt(
         Math.abs(Number(delta_x)) + Math.abs(Number(delta_y)),
     );
 
-    const spent_fuel = distance * spacetime_ref_datum_data.fuel_per_step;
+    const spent_fuel = distance * 1n;
 
     let ship_fuel = 0n;
     ship_utxo[0].output().amount().multiasset()?.forEach(
@@ -266,17 +246,20 @@ async function moveShip(
     const query_tip_result = await blaze.provider.ogmios.queryNetworkTip();
     const network_tip = JSON.parse(JSON.stringify(query_tip_result));
 
-    const lower_bound_slot = network_tip.slot;
-    const lower_bound_unix = slotToUnix(lower_bound_slot);
-    const upper_bound_slot = lower_bound_slot + 300;
-    const upper_bound = slotToUnix(upper_bound_slot);
+    const lower_bound_slot = Number(network_tip.slot);
+    const upper_bound_slot = lower_bound_slot + 12096;
+    // The validator sees POSIX times that are offset from our calculation
+    // Cardano may add additional offset when converting slots to POSIX time
+    const upper_bound_posix = slotToUnix(upper_bound_slot);
+    console.log(upper_bound_posix);
+    console.log(slotToUnix(lower_bound_slot));
 
     const new_ship_data = {
         pos_x: old_ship_datum.pos_x + delta_x,
         pos_y: old_ship_datum.pos_y + delta_y,
         ship_token_name: old_ship_datum.ship_token_name,
         pilot_token_name: old_ship_datum.pilot_token_name,
-        tx_latest_posix_time: BigInt(upper_bound),
+        last_move_latest_time: BigInt(upper_bound_posix),
     };
     const pilot_token = AssetId(
         shipyard_policy + old_ship_datum.pilot_token_name,
@@ -350,9 +333,8 @@ async function gatherFuel(
         pellet_input,
     ]);
 
-    const spacetime_validator_address = spacetime_ref_utxos[0].output()
-        .address();
-    const pellet_validator_address = pellet_ref_utxos[0].output().address();
+    const pellet_validator_address = addressFromBech32("addr1wya6hnluvypwcfww6s8p5f8m5gphryjugmcznxetj3trvrsc307jj");
+    const spacetime_validator_address = addressFromBech32("addr1wypfrtn6awhsvjmc24pqj0ptzvtfalang33rq8ng6j6y7scnlkytx");
 
     const fuel_policy = extractPolicyIdFromAddress(pellet_validator_address);
     const fuel_assetName = "4655454C";

@@ -81,21 +81,31 @@ export class GameStateManager {
 
     async updateShips(): Promise<void> {
         console.log("🚀 Querying all ships on the grid...");
+        console.log("📍 Fetching ships from spacetime address:", this.spacetimeValidatorAddress.toBech32());
+        console.log("🔗 Looking for shipyard policy:", this.shipyardPolicy);
         
         try {
             // Query all UTXOs at spacetime address to find ships
             const shipUtxos = await this.provider.getUnspentOutputs(this.spacetimeValidatorAddress);
+            console.log(`🔍 Found ${shipUtxos.length} UTXOs at spacetime address`);
             
             this.gameState.ships.clear();
+            let shipTokenCount = 0;
+            let validShipCount = 0;
             
             for (const shipUtxo of shipUtxos) {
                 // Check if this UTXO contains a ship token
                 let hasShipToken = false;
                 let shipTokenName = "";
+                let allAssets: string[] = [];
                 
                 shipUtxo.output().amount().multiasset()?.forEach((value, asset) => {
-                    if (AssetId.getPolicyId(asset).toLowerCase() === this.shipyardPolicy.toLowerCase()) {
-                        const assetName = AssetId.getAssetName(asset);
+                    const policyId = AssetId.getPolicyId(asset);
+                    const assetName = AssetId.getAssetName(asset);
+                    allAssets.push(`${policyId}:${assetName}`);
+                    
+                    if (policyId.toLowerCase() === this.shipyardPolicy.toLowerCase()) {
+                        shipTokenCount++;
                         // Check if it's a SHIP token (not PILOT)
                         if (assetName.startsWith("53484950")) { // "SHIP" in hex
                             hasShipToken = true;
@@ -104,36 +114,58 @@ export class GameStateManager {
                     }
                 });
 
-                if (!hasShipToken) continue;
+                if (!hasShipToken) {
+                    if (allAssets.length > 0 && shipTokenCount <= 5) { // Only log first few for debugging
+                        console.log(`⚠️ UTXO has policy assets but no SHIP token:`, allAssets.slice(0, 3));
+                    }
+                    continue;
+                }
 
                 const datum = shipUtxo.output().datum()?.asInlineData();
-                if (!datum) continue;
+                if (!datum) {
+                    console.log(`⚠️ Ship token found but no datum`);
+                    continue;
+                }
 
-                const shipDatum = Data.from(datum, ShipDatum);
-                const position: Position = {
-                    x: shipDatum.pos_x,
-                    y: shipDatum.pos_y
-                };
+                try {
+                    const shipDatum = Data.from(datum, ShipDatum);
+                    const position: Position = {
+                        x: shipDatum.pos_x,
+                        y: shipDatum.pos_y
+                    };
 
-                let fuelAmount = 0n;
-                shipUtxo.output().amount().multiasset()?.forEach((value, asset) => {
-                    if (AssetId.getPolicyId(asset) === AssetId.getPolicyId(this.fuelToken)) {
-                        fuelAmount = value;
+                    let fuelAmount = 0n;
+                    shipUtxo.output().amount().multiasset()?.forEach((value, asset) => {
+                        if (AssetId.getPolicyId(asset) === AssetId.getPolicyId(this.fuelToken)) {
+                            fuelAmount = value;
+                        }
+                    });
+
+                    const ship: Ship = {
+                        position,
+                        fuel: fuelAmount,
+                        tokenName: shipTokenName
+                    };
+
+                    this.gameState.ships.set(positionToKey(position), ship);
+                    validShipCount++;
+                    
+                    if (validShipCount <= 3) { // Log first few ships for debugging
+                        console.log(`✅ Found ship at (${position.x}, ${position.y}) with ${fuelAmount} fuel`);
                     }
-                });
-
-                const ship: Ship = {
-                    position,
-                    fuel: fuelAmount,
-                    tokenName: shipTokenName
-                };
-
-                this.gameState.ships.set(positionToKey(position), ship);
+                } catch (datumError) {
+                    console.log(`⚠️ Failed to parse ship datum:`, datumError);
+                }
             }
 
             console.log(`🚢 Found ${this.gameState.ships.size} ships on the grid`);
+            console.log(`📊 Ship detection summary:`);
+            console.log(`   Total UTXOs at spacetime: ${shipUtxos.length}`);
+            console.log(`   Assets with shipyard policy: ${shipTokenCount}`);
+            console.log(`   Valid ships with SHIP tokens: ${validShipCount}`);
         } catch (error) {
             console.error("❌ Error updating ships:", error);
+            console.error("Error details:", error);
         }
     }
 

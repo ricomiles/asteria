@@ -5,35 +5,35 @@ import { Kupmios } from "@blaze-cardano/sdk";
 
 async function main() {
     const address =
-        "addr_test1qzjpgxkhe06gxzstfhywg02ggy5ltuwne6mfr406dlf0mpwp9a07r34cwsnkpn44tllxuydw4wp0xvstw5jqv5q9lszsk2qynn";
+        "addr1qy45nexa87ms28jxe48rqs5g36sgrjej9n4fp09h9ftdxr60053vjzxn37ayva7d6fghzfeg8g20axhzjvtd4awz5g5s32wyqz";
 
     const provider = new Kupmios(
-        process.env.KUPO_URL!,
-        await Unwrapped.Ogmios.new(process.env.OGMIOS_URL!)
+        "https://kupo1shqzdry3gh2dsgdy3lg.mainnet-v2.kupo-m1.demeter.run",
+        await Unwrapped.Ogmios.new("https://ogmios199hxc0fnr4wpjg8cp37.mainnet-v6.ogmios-m1.demeter.run")
     );
-
 
     const ship_utxo: OutRef = {
         tx_hash:
-            "3e04a7a3e4a1015705c44822feaf5f2da1e9609eebd68310c87b7eba7923739a",
+            "bbe5c251d13317afbf1f2615111bac1b07ed5c1b791e58e78adb3a517b945162",
         tx_index: 0n,
     };
+
     const pellet_utxo: OutRef = {
         tx_hash:
-            "22af0198b4e6e9c8306392c7ac0ea97b8a2f659a6312708b22b7717805554b97",
-        tx_index: 0n,
+            "9dc3bc8c36e0785e622360cf9e9ff6a508a08e54ad1d273b94d646ad71943209",
+        tx_index: 33n,
     };
 
     const spacetime_script_reference: OutRef = {
         tx_hash:
-            "41e5881cd3bdc3f08bcf341796347e9027e3bcd8d58608b4fcfca5c16cbf5921",
-        tx_index: 0n,
+            "3d308c0f3deb1eff764cbb765452c53d30704748681d7acd61c7775aeb8a8e46",
+        tx_index: 1n,
     };
 
     const pellet_script_reference: OutRef = {
         tx_hash:
-            "ba6fab625d70a81f5d1b699e7efde4b74922d06224bef1f6b84f3adf0a61f3f3",
-        tx_index: 0n,
+            "3d308c0f3deb1eff764cbb765452c53d30704748681d7acd61c7775aeb8a8e46",
+        tx_index: 2n,
     };
 
 

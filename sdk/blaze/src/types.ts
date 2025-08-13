@@ -7,7 +7,7 @@ const ShipDatumSchema = Data.Object({
   pos_y: Data.Integer(),
   ship_token_name: Data.Bytes(),
   pilot_token_name: Data.Bytes(),
-  tx_latest_posix_time: Data.Integer(),
+  last_move_latest_time: Data.Integer(),
 });
 
 type ShipDatum = Static<typeof ShipDatumSchema>;

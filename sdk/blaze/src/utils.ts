@@ -16,8 +16,8 @@ function utf8ToHex(utf: string): string {
 function slotToUnix(
     slot: number,
 ) {
-    const preview_knownTime = 1666656000000;
-    const msAfterBegin = slot * 1000;
+    const preview_knownTime = 1596059091000;
+    const msAfterBegin = (slot - 4492800) * 1000;
     return preview_knownTime + msAfterBegin;
 }
 

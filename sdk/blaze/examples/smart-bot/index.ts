@@ -145,7 +145,7 @@ class SmartAsteriaBot {
         // Use known correct policy IDs from mainnet
         // These were verified from our Blockfrost testing
         const fuelPolicy = "3babcffc6102ec25ced40e1a24fba20371925c46f0299b2b9456360e";
-        this.shipyardPolicy = "3babcffc6102ec25ced40e1a24fba20371925c46f0299b2b9456360e"; // Same policy for shipyard
+        this.shipyardPolicy = "0291ae7aebaf064b785542093c2b13169effb34462301e68d4b44f43"; // Correct ship policy from blockchain
         
         this.fuelToken = AssetId(fuelPolicy + "4655454C"); // "FUEL" in hex
         

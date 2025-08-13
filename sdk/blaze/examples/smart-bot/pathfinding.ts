@@ -35,7 +35,7 @@ export class Pathfinder {
         openSet.set(positionToKey(start), startNode);
         
         let iterations = 0;
-        const maxIterations = 1000; // Prevent infinite loops
+        const maxIterations = 5000; // Increased for better exploration
         
         while (openSet.size > 0 && iterations < maxIterations) {
             iterations++;
@@ -105,15 +105,21 @@ export class Pathfinder {
                 
                 // Check if we have enough fuel to continue from here
                 const distanceToGoal = manhattanDistance(neighborPos, goal);
-                const hasPathThroughPellets = this.hasPelletOnPath(neighborPos, goal, fuelAtNeighbor);
                 
-                if (fuelAtNeighbor < distanceToGoal && !hasPathThroughPellets) {
-                    // This is the critical rejection logic - let's debug it
+                // Be more permissive - only reject if we definitely can't make it
+                // Allow exploration if:
+                // 1. We have enough fuel to reach goal directly
+                // 2. We found a pellet at this position (might lead to more pellets)
+                // 3. We're within reasonable distance and might find pellets
+                const canContinue = fuelAtNeighbor >= distanceToGoal || 
+                                   foundPellet || 
+                                   (fuelAtNeighbor > 0 && distanceToGoal < 100);
+                
+                if (!canContinue) {
                     if (iterations <= 5) {
                         console.log(`🔍 A* Debug: REJECTING neighbor (${neighborPos.x}, ${neighborPos.y})`);
                         console.log(`   Fuel at neighbor: ${fuelAtNeighbor}`);
                         console.log(`   Distance to goal: ${distanceToGoal}`);
-                        console.log(`   Has pellet on path: ${hasPathThroughPellets}`);
                         console.log(`   Found pellet here: ${foundPellet}`);
                     }
                     continue;
@@ -122,7 +128,6 @@ export class Pathfinder {
                         console.log(`🔍 A* Debug: ACCEPTING neighbor (${neighborPos.x}, ${neighborPos.y})`);
                         console.log(`   Fuel at neighbor: ${fuelAtNeighbor}`);
                         console.log(`   Distance to goal: ${distanceToGoal}`);
-                        console.log(`   Has pellet on path: ${hasPathThroughPellets}`);
                     }
                 }
                 
@@ -250,25 +255,11 @@ export class Pathfinder {
             { dx: 1n, dy: 0n },   // Right
             { dx: -1n, dy: 0n },  // Left
             { dx: 0n, dy: 1n },   // Up
-            { dx: 0n, dy: -1n },  // Down
-            { dx: 1n, dy: 1n },   // Diagonal UR
-            { dx: -1n, dy: 1n },  // Diagonal UL
-            { dx: 1n, dy: -1n },  // Diagonal DR
-            { dx: -1n, dy: -1n }  // Diagonal DL
+            { dx: 0n, dy: -1n }   // Down
         ];
         
+        // Add all orthogonal neighbors (no diagonal restriction)
         for (const move of moves) {
-            // Skip diagonal moves if we're not moving diagonally toward origin
-            if (move.dx !== 0n && move.dy !== 0n) {
-                const towardOriginX = position.x !== 0n ? -position.x / this.abs(position.x) : 0n;
-                const towardOriginY = position.y !== 0n ? -position.y / this.abs(position.y) : 0n;
-                
-                // Only allow diagonal if it moves toward origin in both dimensions
-                if (move.dx !== towardOriginX || move.dy !== towardOriginY) {
-                    continue;
-                }
-            }
-            
             neighbors.push({
                 x: position.x + move.dx,
                 y: position.y + move.dy

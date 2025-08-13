@@ -159,9 +159,9 @@ class BlockfrostPathfindingSimulator {
         const pelletValidatorAddress = addressFromBech32("addr1wya6hnluvypwcfww6s8p5f8m5gphryjugmcznxetj3trvrsc307jj");
         const spacetimeValidatorAddress = addressFromBech32("addr1wypfrtn6awhsvjmc24pqj0ptzvtfalang33rq8ng6j6y7scnlkytx");
         
-        // Extract policies from addresses
-        const pelletPolicy = extractPolicyIdFromAddress(pelletValidatorAddress);
-        const shipyardPolicy = extractPolicyIdFromAddress(spacetimeValidatorAddress);
+        // Use known correct policy IDs from mainnet
+        const pelletPolicy = "3babcffc6102ec25ced40e1a24fba20371925c46f0299b2b9456360e";
+        const shipyardPolicy = "0291ae7aebaf064b785542093c2b13169effb34462301e68d4b44f43"; // Correct ship policy
         const fuelToken = AssetId(pelletPolicy + "4655454C"); // "FUEL" in hex
 
         console.log("📋 Using Blockfrost with:");

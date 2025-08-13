@@ -5,33 +5,33 @@ import { Unwrapped } from "@blaze-cardano/ogmios";
 
 async function main() {
     const address =
-        "addr_test1qzjpgxkhe06gxzstfhywg02ggy5ltuwne6mfr406dlf0mpwp9a07r34cwsnkpn44tllxuydw4wp0xvstw5jqv5q9lszsk2qynn";
+        "addr1qy45nexa87ms28jxe48rqs5g36sgrjej9n4fp09h9ftdxr60053vjzxn37ayva7d6fghzfeg8g20axhzjvtd4awz5g5s32wyqz";
 
     const provider = new Kupmios(
-        process.env.KUPO_URL!,
-        await Unwrapped.Ogmios.new(process.env.OGMIOS_URL!)
+        "https://kupo1shqzdry3gh2dsgdy3lg.mainnet-v2.kupo-m1.demeter.run",
+        await Unwrapped.Ogmios.new("https://ogmios199hxc0fnr4wpjg8cp37.mainnet-v6.ogmios-m1.demeter.run")
     );
 
     const spacetime_script_reference: OutRef = {
         tx_hash:
-            "41e5881cd3bdc3f08bcf341796347e9027e3bcd8d58608b4fcfca5c16cbf5921",
+            "3d308c0f3deb1eff764cbb765452c53d30704748681d7acd61c7775aeb8a8e46",
         tx_index: 0n,
     };
 
     const pellet_script_reference: OutRef = {
         tx_hash:
-            "ba6fab625d70a81f5d1b699e7efde4b74922d06224bef1f6b84f3adf0a61f3f3",
-        tx_index: 0n,
+            "3d308c0f3deb1eff764cbb765452c53d30704748681d7acd61c7775aeb8a8e46",
+        tx_index: 2n,
     };
 
     const asteria_script_reference: OutRef = {
         tx_hash:
-            "39871aab15b7c5ab1075ba431d7475f3977fe40fbb8d654b6bdf6f6726659277",
-        tx_index: 0n,
+            "3d308c0f3deb1eff764cbb765452c53d30704748681d7acd61c7775aeb8a8e46",
+        tx_index: 1n,
     };
 
-    const pos_x = 20n;
-    const pos_y = 20n;
+    const pos_x = 27n;
+    const pos_y = 27n;
 
     const gameIdentifier: GameIdentifier = {
         spacetime_script_reference,
