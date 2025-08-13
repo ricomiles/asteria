@@ -1,0 +1,24 @@
+{
+  "name": "asteria-smart-bot",
+  "version": "1.0.0", 
+  "description": "Smart Asteria bot with A* pathfinding and fuel optimization",
+  "main": "index.ts",
+  "scripts": {
+    "test": "npx ts-node --transpile-only test.ts",
+    "run": "npx ts-node --transpile-only index.ts",
+    "simulate": "npx ts-node --transpile-only pathfinding-simulator.ts",
+    "simulate-blockfrost": "npx ts-node --transpile-only pathfinding-simulator-blockfrost.ts",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@blaze-cardano/core": "^0.5.2",
+    "@blaze-cardano/ogmios": "^0.0.7", 
+    "@blaze-cardano/sdk": "^0.2.11",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.7.2"
+  }
+}
