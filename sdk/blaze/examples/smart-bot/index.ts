@@ -203,8 +203,8 @@ class SmartAsteriaBot {
     }
 
     private async createOptimalShip(): Promise<boolean> {
-        console.log("\n🎯 Phase 2: Ship Creation");
-        console.log("-------------------------");
+        console.log("\n🎯 Phase 2: Ship Setup");
+        console.log("----------------------");
         
         // Find optimal spawn position
         const optimalSpawn = await this.spawnOptimizer.findOptimalSpawnPosition();
@@ -214,16 +214,67 @@ class SmartAsteriaBot {
             return false;
         }
         
-        // Check if we have an existing ship
+        // Check if we have an existing ship UTXO specified
         const existingShipRef = process.env.SHIP_UTXO_REF;
         if (existingShipRef) {
+            console.log(`🔄 Using existing ship UTXO: ${existingShipRef}`);
+            
             const [txHash, txIndex] = existingShipRef.split('#');
             this.shipUtxoRef = {
                 tx_hash: txHash,
                 tx_index: BigInt(txIndex || 0)
             };
-            console.log("📍 Using existing ship");
-            return true;
+            
+            // Load the existing ship's state
+            const shipLoaded = await this.loadExistingShipState();
+            if (!shipLoaded) {
+                console.error("❌ Failed to load existing ship state, falling back to ship creation");
+                // Continue to ship creation below
+            } else {
+                console.log(`✅ Successfully loaded existing ship at (${this.shipPosition?.x}, ${this.shipPosition?.y})`);
+                console.log(`⛽ Ship fuel: ${this.shipFuel}/${GAME_CONFIG.maxShipFuel}`);
+                
+                // Check if ship is ready to move (cooldown complete)
+                const cooldownStatus = await this.checkMoveCooldown();
+                if (!cooldownStatus.ready) {
+                    const remainingSeconds = Math.round(cooldownStatus.remainingMs / 1000);
+                    const remainingMinutes = Math.round(remainingSeconds / 60);
+                    const remainingHours = Math.round(remainingMinutes / 60);
+                    
+                    console.log(`⏳ Ship is still in cooldown for ${this.formatTimeRemaining(cooldownStatus.remainingMs)}`);
+                    console.log(`⏰ Next move available at: ${new Date(Date.now() + cooldownStatus.remainingMs).toLocaleTimeString()}`);
+                    
+                    // Dynamic cooldown handling based on remaining time
+                    if (cooldownStatus.remainingMs <= 30000) { // ≤ 30 seconds
+                        console.log("⚡ Very short cooldown - waiting automatically...");
+                        await this.delay(cooldownStatus.remainingMs);
+                        console.log("✅ Cooldown complete, ready to move!");
+                    } else if (cooldownStatus.remainingMs <= 300000) { // ≤ 5 minutes
+                        console.log("⏳ Short cooldown - waiting automatically...");
+                        await this.delayWithProgress(cooldownStatus.remainingMs);
+                        console.log("✅ Cooldown complete, ready to move!");
+                    } else if (cooldownStatus.remainingMs <= 1800000) { // ≤ 30 minutes
+                        console.log("🕐 Medium cooldown detected. Options:");
+                        console.log("   1. Wait automatically (bot will continue after cooldown)");
+                        console.log("   2. Exit and run later");
+                        console.log("⏳ Waiting automatically - bot will continue when ready...");
+                        await this.delayWithProgress(cooldownStatus.remainingMs);
+                        console.log("✅ Cooldown complete, ready to move!");
+                    } else { // > 30 minutes
+                        console.log("⏰ Long cooldown detected. Recommendations:");
+                        console.log(`   - Remaining: ${this.formatTimeRemaining(cooldownStatus.remainingMs)}`);
+                        console.log("   - Consider running the bot later for efficiency");
+                        console.log("   - Or let it wait (bot will continue automatically)");
+                        console.log("⏳ Bot will wait and continue automatically when ready...");
+                        await this.delayWithProgress(cooldownStatus.remainingMs);
+                        console.log("✅ Cooldown complete, ready to move!");
+                    }
+                } else {
+                    console.log("✅ Ship is ready to move immediately!");
+                }
+                
+                return true;
+            }
         }
         
         console.log(`\n🚀 Creating ship at (${optimalSpawn.position.x}, ${optimalSpawn.position.y})`);
@@ -543,6 +594,54 @@ class SmartAsteriaBot {
         }
     }
 
+    private async loadExistingShipState(): Promise<boolean> {
+        if (!this.shipUtxoRef) return false;
+        
+        try {
+            console.log("🔍 Loading existing ship state...");
+            
+            const shipInput = outRefToTransactionInput(this.shipUtxoRef);
+            // Use Kupo/Ogmios provider for transaction-related queries
+            const shipUtxo = await this.provider.resolveUnspentOutputs([shipInput]);
+            
+            if (!shipUtxo || shipUtxo.length === 0) {
+                console.error("❌ Ship UTXO not found or already spent");
+                return false;
+            }
+            
+            const datum = shipUtxo[0].output().datum()?.asInlineData();
+            if (!datum) {
+                console.error("❌ Ship UTXO has no datum");
+                return false;
+            }
+            
+            const shipDatum = Data.from(datum, ShipDatum);
+            
+            this.shipPosition = {
+                x: shipDatum.pos_x,
+                y: shipDatum.pos_y
+            };
+            
+            // Extract fuel from UTXO assets
+            let fuel = 0n;
+            shipUtxo[0].output().amount().multiasset()?.forEach((value, asset) => {
+                if (AssetId.getPolicyId(asset) === AssetId.getPolicyId(this.fuelToken)) {
+                    fuel = value;
+                }
+            });
+            
+            this.shipFuel = fuel;
+            this.gameState.updateMyShip(this.shipPosition, fuel);
+            
+            console.log("✅ Ship state loaded successfully");
+            return true;
+            
+        } catch (error) {
+            console.error("❌ Failed to load existing ship state:", error);
+            return false;
+        }
+    }
+
     private async waitForTransaction(txId: TransactionId): Promise<void> {
         console.log("⏳ Waiting for transaction confirmation...");
         
@@ -564,6 +663,39 @@ class SmartAsteriaBot {
         }
         
         console.warn("⚠️ Transaction confirmation timeout");
+    }
+
+    private async checkMoveCooldown(): Promise<{ready: boolean, remainingMs: number}> {
+        if (!this.shipUtxoRef) return {ready: true, remainingMs: 0};
+        
+        try {
+            // Get the ship's last move time from the datum
+            const shipInput = outRefToTransactionInput(this.shipUtxoRef);
+            // Use Kupo/Ogmios provider for transaction-related queries
+            const shipUtxo = await this.provider.resolveUnspentOutputs([shipInput]);
+            
+            const datum = shipUtxo[0].output().datum()?.asInlineData();
+            if (!datum) {
+                console.log("⚠️ No datum found, assuming full cooldown needed");
+                return {ready: false, remainingMs: GAME_CONFIG.maxSpeed.time};
+            }
+            
+            const shipDatum = Data.from(datum, ShipDatum);
+            const lastMoveTime = Number(shipDatum.last_move_latest_time);
+            const currentTime = Date.now();
+            const timeSinceLastMove = currentTime - lastMoveTime;
+            const remainingCooldown = GAME_CONFIG.maxSpeed.time - timeSinceLastMove;
+            
+            if (remainingCooldown > 0) {
+                return {ready: false, remainingMs: remainingCooldown};
+            } else {
+                return {ready: true, remainingMs: 0};
+            }
+            
+        } catch (error) {
+            console.log("⚠️ Could not read ship datum for cooldown check");
+            return {ready: false, remainingMs: GAME_CONFIG.maxSpeed.time};
+        }
     }
 
     private async waitForMoveCooldown(): Promise<void> {
@@ -606,6 +738,49 @@ class SmartAsteriaBot {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    private async delayWithProgress(ms: number): Promise<void> {
+        const startTime = Date.now();
+        const totalTime = ms;
+        
+        // Show progress every 30 seconds for waits longer than 1 minute
+        if (ms > 60000) {
+            const progressInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const remaining = totalTime - elapsed;
+                
+                if (remaining <= 0) {
+                    clearInterval(progressInterval);
+                    return;
+                }
+                
+                const progress = ((elapsed / totalTime) * 100).toFixed(1);
+                console.log(`⏳ Cooldown progress: ${progress}% - ${this.formatTimeRemaining(remaining)} remaining`);
+            }, 30000); // Update every 30 seconds
+            
+            await this.delay(ms);
+            clearInterval(progressInterval);
+        } else {
+            await this.delay(ms);
+        }
+    }
+
+    private formatTimeRemaining(ms: number): string {
+        const seconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        
+        if (hours > 0) {
+            const remainingMinutes = minutes % 60;
+            const remainingSeconds = seconds % 60;
+            return `${hours}h ${remainingMinutes}m ${remainingSeconds}s`;
+        } else if (minutes > 0) {
+            const remainingSeconds = seconds % 60;
+            return `${minutes}m ${remainingSeconds}s`;
+        } else {
+            return `${seconds}s`;
+        }
+    }
+
     private printFinalStats(): void {
         const elapsed = Date.now() - this.startTime;
         const minutes = Math.floor(elapsed / 60000);
@@ -621,6 +796,8 @@ class SmartAsteriaBot {
 }
 
 // Main entry point
+// To use an existing ship instead of creating new one, set environment variable:
+// SHIP_UTXO_REF="transaction_hash#output_index" (e.g., "abc123def...#0")
 async function main() {
     const bot = new SmartAsteriaBot();
     
